@@ -1,0 +1,251 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2685.3">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!doctype html&gt;</p>
+<p class="p1">&lt;html lang="ru"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="utf-8" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="theme-color" content="#6f7f3a" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="apple-mobile-web-app-capable" content="yes" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;Рецепты&lt;/title&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;link rel="manifest" href="manifest.json" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;link rel="icon" href="icon.svg" type="image/svg+xml" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;link rel="apple-touch-icon" href="apple-touch-icon.png" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;link rel="stylesheet" href="styles.css" /&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- CSV-парсер (надежнее, чем писать свой): --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"&gt;&lt;/script&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;header class="topbar"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;button class="icon-btn" id="btnMenu" aria-label="Меню"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span class="burger"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="titleblock"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="apptitle"&gt;Рецепты&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="subtitle" id="subtitle"&gt;Твоя семейная книга&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;button class="pill-btn" id="btnAdd"&gt;+ Добавить&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/header&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;main class="wrap"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;section class="controls"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="searchrow"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="search"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;span class="searchicon"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;input id="q" type="search" placeholder="Поиск по названию, ингредиентам, тегам…" autocomplete="off" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button class="icon-btn" id="btnFilters" aria-label="Фильтры"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;span class="filtericon"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="filters" id="filters"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="filtergrid"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;label class="field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span&gt;Категория&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;select id="fCategory"&gt;&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;label class="field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span&gt;Тип&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;select id="fType"&gt;&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;label class="field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span&gt;Тег&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;select id="fTag"&gt;&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;label class="check"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;input type="checkbox" id="fFav" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span&gt;Только избранное&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="filteractions"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="ghost-btn" id="btnReset"&gt;Сбросить&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="ghost-btn" id="btnReload"&gt;Обновить данные&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="ghost-btn" id="btnSettings"&gt;Настройки&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="chiprow" id="activeChips" aria-label="Активные фильтры"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/section&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;section class="grid" id="grid"&gt;&lt;/section&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;section class="empty" id="empty"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="emptycard"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="emptytitle"&gt;Пока пусто или не настроено&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="emptytext"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>1) Открой «Настройки» → вставь ссылку CSV из Google Sheets → «Сохранить».&lt;br/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>2) Нажми «Обновить данные».&lt;br/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>3) Готово: рецепты появятся.</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button class="pill-btn" id="btnOpenSettings"&gt;Открыть настройки&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/section&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/main&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Боковое меню --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;aside class="drawer" id="drawer" aria-hidden="true"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="drawerhead"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="drawerTitle"&gt;Меню&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="icon-btn" id="btnCloseDrawer" aria-label="Закрыть"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span class="closeicon"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="drawerbody"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="menuitem" id="menuSettings"&gt;Настройки&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="menuitem" id="menuReload"&gt;Обновить данные&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="menuitem" id="menuAbout"&gt;О приложении&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/aside&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="backdrop" id="backdrop" hidden&gt;&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Модал карточки --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="modal" id="modal" hidden&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modalcard"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modalmedia" id="modalMedia"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modalbody"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modalhead"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="icon-btn" id="btnCloseModal" aria-label="Назад"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span class="backicon"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="modaltitles"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="modaltitle" id="mTitle"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="modalmeta" id="mMeta"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="icon-btn" id="btnFav" aria-label="Избранное" title="Избранное"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span class="staricon" id="starIcon"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="section"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="sectitle"&gt;Ингредиенты&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="rich" id="mIngredients"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="section"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="sectitle"&gt;Приготовление&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="rich" id="mSteps"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="section" id="mNotesWrap" hidden&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="sectitle"&gt;Заметки&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="rich" id="mNotes"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="section"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="sectitle"&gt;Теги&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="taglist" id="mTags"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modalactions"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="pill-btn" id="btnEditHint"&gt;Как редактировать&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Модал настроек --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="modal" id="settingsModal" hidden&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modalcard small"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modalbody"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modalhead"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="icon-btn" id="btnCloseSettings" aria-label="Закрыть"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span class="closeicon"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="modaltitles"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="modaltitle"&gt;Настройки&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="modalmeta"&gt;Один раз вставь ссылки — дальше всё работает само&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="settings"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;label class="field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span&gt;CSV-ссылка из Google Sheets (output=csv)&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;input id="csvUrl" type="url" placeholder="Вставь сюда CSV-ссылку" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;label class="field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span&gt;Ссылка на добавление рецепта (необязательно)&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;input id="addUrl" type="url" placeholder="Можно вставить ссылку на Google Form или саму таблицу" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;label class="field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span&gt;Название приложения&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;input id="appName" type="text" value="Рецепты" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;label class="check"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;input type="checkbox" id="cacheCsv" checked /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span&gt;Хранить последнюю версию офлайн (для просмотра без интернета)&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="settingsActions"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button class="ghost-btn" id="btnClearCache"&gt;Очистить кэш&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button class="pill-btn" id="btnSaveSettings"&gt;Сохранить&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="smallnote"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>Подсказка: в CSV-ссылке обычно есть &lt;b&gt;output=csv&lt;/b&gt;. Если его нет — вернись в «Публикация в интернете» и выбери формат CSV.</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- Модал "О приложении" --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="modal" id="aboutModal" hidden&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modalcard small"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modalbody"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modalhead"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="icon-btn" id="btnCloseAbout" aria-label="Закрыть"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;span class="closeicon"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="modaltitles"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="modaltitle"&gt;О приложении&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div class="modalmeta"&gt;Личная PWA-книга рецептов&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="about"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p&gt;&lt;b&gt;Как это работает:&lt;/b&gt; приложение читает опубликованный CSV из Google Sheets.&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p&gt;&lt;b&gt;Как редактировать:&lt;/b&gt; правишь данные в таблице → нажимаешь «Обновить данные».&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p&gt;&lt;b&gt;Добавление рецептов с телефона:&lt;/b&gt; удобнее через Google Form (если захочешь, настроим отдельно).&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script src="app.js"&gt;&lt;/script&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if ("serviceWorker" in navigator) {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>window.addEventListener("load", () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>navigator.serviceWorker.register("./sw.js").catch(() =&gt; {});</p>
+<p class="p1"><span class="Apple-converted-space">      </span>});</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
