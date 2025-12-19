@@ -7,26 +7,24 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
   <title>Рецепты</title>
 
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <link rel="stylesheet" href="./styles.css" />
 
-  <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script defer src="./app.js"></script>
 </head>
 
 <body>
   <header class="topbar">
     <button class="icon-btn" id="btnMenu" aria-label="Меню"><span class="burger"></span></button>
-
     <div class="titleblock">
       <div class="apptitle">Рецепты</div>
-      <div class="subtitle">Твоя семейная книга</div>
+      <div class="subtitle" id="subtitle">Твоя семейная книга</div>
     </div>
-
     <button class="pill-btn" id="btnSource">Источник</button>
   </header>
 
@@ -35,96 +33,66 @@
       <div class="searchrow">
         <div class="search">
           <span class="searchicon"></span>
-          <input id="q" type="search" placeholder="Поиск по названию, ингредиентам, тегам…" autocomplete="off" />
+          <input id="q" type="search" placeholder="Поиск по названию, ингредиентам, тегам..." autocomplete="off" />
         </div>
-
-        <button class="icon-btn" id="btnFilters" aria-label="Фильтры">
-          <span class="filtericon"></span>
-        </button>
+        <button class="icon-btn" id="btnFilters" aria-label="Фильтры"><span class="filtericon"></span></button>
       </div>
 
       <div class="filters" id="filters" hidden>
         <div class="filtergrid">
-          <label class="field">
-            <span>Категория</span>
-            <select id="fCategory"></select>
-          </label>
-          <label class="field">
-            <span>Тип</span>
-            <select id="fType"></select>
-          </label>
-          <label class="field">
-            <span>Время</span>
-            <select id="fTimeBucket"></select>
-          </label>
-          <label class="field">
-            <span>Сценарий</span>
-            <select id="fScenario"></select>
-          </label>
-          <label class="field">
-            <span>Способ</span>
-            <select id="fMethod"></select>
-          </label>
-          <label class="field">
-            <span>Ограничения</span>
-            <select id="fDiet"></select>
-          </label>
-        </div>
-
-        <div class="filteractions">
-          <button class="ghost-btn" id="btnReset">Сбросить</button>
-          <button class="pill-btn" id="btnApply">Применить</button>
+          <label class="field"><span>Категория</span><select id="fCategory"></select></label>
+          <label class="field"><span>Тип блюда</span><select id="fType"></select></label>
+          <label class="field"><span>Время</span><select id="fTimeBucket"></select></label>
+          <label class="field"><span>Сценарий</span><select id="fScenario"></select></label>
+          <label class="field"><span>Способ</span><select id="fMethod"></select></label>
+          <label class="field"><span>Диета</span><select id="fDiet"></select></label>
         </div>
       </div>
     </section>
 
-    <section class="grid" id="grid"></section>
-    <section class="empty" id="empty" hidden>
-      Ничего не найдено. Попробуй изменить фильтры или поиск.
-    </section>
-  </main>
+    <section id="grid" class="grid"></section>
 
-  <!-- Экран рецепта -->
-  <section class="drawer" id="drawer" aria-hidden="true">
-    <div class="sheet">
-      <div class="sheet-top">
-        <button class="icon-btn" id="btnBack" aria-label="Назад"><span class="backicon"></span></button>
-        <div class="sheet-title" id="dTitle"></div>
-        <button class="icon-btn" id="btnShare" aria-label="Поделиться"><span class="shareicon"></span></button>
-      </div>
-
+    <section id="detail" class="detail" hidden>
+      <button class="backbtn" id="btnBack" aria-label="Назад">←</button>
       <div class="hero">
         <img id="dPhoto" alt="" />
       </div>
-
-      <div class="sheet-body">
+      <div class="card">
+        <h1 id="dName"></h1>
         <div class="metaline" id="dMeta"></div>
 
-        <div class="ratingrow" id="dRatingRow" hidden>
-          <div class="label">Оценка</div>
-          <div class="stars" id="dStars"></div>
-        </div>
+        <h2>Ингредиенты</h2>
+        <div class="textblock" id="dIngredients"></div>
 
-        <h2>Ингредиенты:</h2>
-        <div class="rich" id="dIngredients"></div>
+        <h2>Приготовление</h2>
+        <div class="textblock" id="dSteps"></div>
 
-        <h2>Приготовление:</h2>
-        <div class="rich" id="dSteps"></div>
+        <div class="tags" id="dTags"></div>
+      </div>
+    </section>
+  </main>
 
-        <div class="tagsbox" id="dTagsBox" hidden>
-          <div class="tagslabel">Теги</div>
-          <div class="tags" id="dTags"></div>
-        </div>
+  <div class="modal" id="modal" hidden>
+    <div class="modalcard">
+      <div class="modalhead">
+        <div class="modaltitle">Источник данных</div>
+        <button class="icon-btn" id="btnClose" aria-label="Закрыть">✕</button>
+      </div>
+
+      <label class="field">
+        <span>Ссылка на CSV (Google Sheets → Публикация → CSV)</span>
+        <input id="csvUrl" type="url" placeholder="Вставь ссылку вида ...pub?output=csv" />
+      </label>
+
+      <div class="modalactions">
+        <button class="pill-btn" id="btnSave">Сохранить</button>
+        <button class="ghost-btn" id="btnReload">Обновить</button>
+      </div>
+
+      <div class="hint">
+        Подсказка: в Google Sheets выбери «Файл → Опубликовать в интернете → Таблица со значениями, разделенными запятыми (CSV)».
       </div>
     </div>
-  </section>
-
-  <!-- Модалка источника -->
-  <div class="modal" id="modal" hidden>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
-      <div class="modal-head">
-        <div class="modal-title" id="mTitle">Источник данных</div>
-        <button class="icon-btn" id="mClose" aria-label="Закрыть"><span class="closeicon"></span></button>
-      </div>
-
-      <div
+  </div>
+</body>
+</html>
