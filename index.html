@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#6f7f3a" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
@@ -12,8 +13,8 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <link rel="stylesheet" href="styles.css" />
 
+  <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 
@@ -23,10 +24,10 @@
 
     <div class="titleblock">
       <div class="apptitle">Рецепты</div>
-      <div class="subtitle" id="subtitle">Твоя семейная книга</div>
+      <div class="subtitle">Твоя семейная книга</div>
     </div>
 
-    <button class="pill-btn" id="btnSettings">Источник</button>
+    <button class="pill-btn" id="btnSource">Источник</button>
   </header>
 
   <main class="wrap">
@@ -36,108 +37,94 @@
           <span class="searchicon"></span>
           <input id="q" type="search" placeholder="Поиск по названию, ингредиентам, тегам…" autocomplete="off" />
         </div>
-        <button class="icon-btn" id="btnFilters" aria-label="Фильтры"><span class="filtericon"></span></button>
+
+        <button class="icon-btn" id="btnFilters" aria-label="Фильтры">
+          <span class="filtericon"></span>
+        </button>
       </div>
 
-      <div class="filters" id="filters">
+      <div class="filters" id="filters" hidden>
         <div class="filtergrid">
           <label class="field">
             <span>Категория</span>
             <select id="fCategory"></select>
           </label>
-
           <label class="field">
             <span>Тип</span>
             <select id="fType"></select>
           </label>
-
-          <label class="field">
-            <span>Тег</span>
-            <select id="fTag"></select>
-          </label>
-
           <label class="field">
             <span>Время</span>
             <select id="fTimeBucket"></select>
+          </label>
+          <label class="field">
+            <span>Сценарий</span>
+            <select id="fScenario"></select>
+          </label>
+          <label class="field">
+            <span>Способ</span>
+            <select id="fMethod"></select>
+          </label>
+          <label class="field">
+            <span>Ограничения</span>
+            <select id="fDiet"></select>
           </label>
         </div>
 
         <div class="filteractions">
           <button class="ghost-btn" id="btnReset">Сбросить</button>
+          <button class="pill-btn" id="btnApply">Применить</button>
         </div>
       </div>
     </section>
 
     <section class="grid" id="grid"></section>
+    <section class="empty" id="empty" hidden>
+      Ничего не найдено. Попробуй изменить фильтры или поиск.
+    </section>
   </main>
 
-  <!-- Drawer / Settings -->
-  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
-
-  <aside class="drawer" id="drawer" aria-hidden="true">
-    <div class="drawerhead">
-      <div class="drawertitle">Источник данных</div>
-      <button class="icon-btn" id="btnCloseDrawer" aria-label="Закрыть"><span class="closeicon"></span></button>
-    </div>
-
-    <div class="drawerbody">
-      <p class="hint">
-        Нужна публичная CSV-ссылка Google Sheets.
-        Вставь её ниже — и рецепты подгрузятся.
-      </p>
-
-      <label class="field">
-        <span>CSV-ссылка</span>
-        <input id="csvUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/…/pub?output=csv" />
-      </label>
-
-      <div class="row">
-        <button class="pill-btn" id="btnSaveCsv">Сохранить</button>
-        <button class="ghost-btn" id="btnUseDemo">Демо</button>
+  <!-- Экран рецепта -->
+  <section class="drawer" id="drawer" aria-hidden="true">
+    <div class="sheet">
+      <div class="sheet-top">
+        <button class="icon-btn" id="btnBack" aria-label="Назад"><span class="backicon"></span></button>
+        <div class="sheet-title" id="dTitle"></div>
+        <button class="icon-btn" id="btnShare" aria-label="Поделиться"><span class="shareicon"></span></button>
       </div>
 
-      <div class="status" id="status"></div>
+      <div class="hero">
+        <img id="dPhoto" alt="" />
+      </div>
 
-      <details class="help">
-        <summary>Как получить CSV-ссылку</summary>
-        <ol>
-          <li>Google Sheets → <b>Файл → Опубликовать в интернете</b></li>
-          <li>Выбери лист (например, Recipes) и формат <b>Значения, разделённые запятыми (CSV)</b></li>
-          <li>Нажми <b>Опубликовать</b>, скопируй ссылку</li>
-        </ol>
-      </details>
-    </div>
-  </aside>
+      <div class="sheet-body">
+        <div class="metaline" id="dMeta"></div>
 
-  <!-- Details modal -->
-  <div class="modal-backdrop" id="modalBackdrop" hidden></div>
-  <article class="modal" id="modal" aria-hidden="true">
-    <button class="icon-btn modalclose" id="btnCloseModal" aria-label="Назад"><span class="backicon"></span></button>
+        <div class="ratingrow" id="dRatingRow" hidden>
+          <div class="label">Оценка</div>
+          <div class="stars" id="dStars"></div>
+        </div>
 
-    <div class="hero">
-      <img id="mPhoto" alt="" />
-      <div class="herotext">
-        <h1 id="mTitle"></h1>
-        <div class="meta" id="mMeta"></div>
+        <h2>Ингредиенты:</h2>
+        <div class="rich" id="dIngredients"></div>
+
+        <h2>Приготовление:</h2>
+        <div class="rich" id="dSteps"></div>
+
+        <div class="tagsbox" id="dTagsBox" hidden>
+          <div class="tagslabel">Теги</div>
+          <div class="tags" id="dTags"></div>
+        </div>
       </div>
     </div>
+  </section>
 
-    <div class="content">
-      <section>
-        <h2>Ингредиенты</h2>
-        <pre class="block" id="mIngredients"></pre>
-      </section>
-      <section>
-        <h2>Приготовление</h2>
-        <pre class="block" id="mSteps"></pre>
-      </section>
-      <section id="notesSection" hidden>
-        <h2>Заметки</h2>
-        <pre class="block" id="mNotes"></pre>
-      </section>
-    </div>
-  </article>
+  <!-- Модалка источника -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <div class="modal-head">
+        <div class="modal-title" id="mTitle">Источник данных</div>
+        <button class="icon-btn" id="mClose" aria-label="Закрыть"><span class="closeicon"></span></button>
+      </div>
 
-  <script src="app.js"></script>
-</body>
-</html>
+      <div
