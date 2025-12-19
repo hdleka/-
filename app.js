@@ -1,231 +1,439 @@
-:root{
-  --bg:#0b0c0b;
-  --card:#111311;
-  --text:#f3f4f2;
-  --muted:#a9b09e;
-  --accent:#6f7f3a;
-  --accent2:#8ea04b;
-  --line:rgba(255,255,255,.08);
-  --shadow: 0 16px 40px rgba(0,0,0,.45);
+'use strict';
+
+const LS_KEY = 'recipes_csv_url_v1';
+
+const el = (id) => document.getElementById(id);
+
+const state = {
+  raw: [],
+  list: [],
+  selected: null,
+  filters: {
+    q: '',
+    Category: 'Все',
+    Type: 'Все',
+    TimeBucket: 'Все',
+    Scenario: 'Все',
+    Method: 'Все',
+    Diet: 'Все',
+  }
+};
+
+// ====== Нормализация полей из таблицы ======
+function normStr(v) {
+  return String(v ?? '').trim();
+}
+function toInt(v) {
+  const n = Number(String(v ?? '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+function splitTags(v) {
+  // поддержка: "тег1, тег2" / "тег1; тег2" / переносы строк
+  const s = normStr(v);
+  if (!s) return [];
+  return s
+    .split(/[\n,;]+/g)
+    .map(x => normStr(x))
+    .filter(Boolean);
+}
+function timeBucket(mins) {
+  const m = toInt(mins);
+  if (!m && m !== 0) return '';
+  if (m <= 20) return 'Быстро (до 20 минут)';
+  if (m <= 45) return 'Средне (20–45 минут)';
+  return 'Долго (45+ минут)';
+}
+function metaLine(r) {
+  const parts = [];
+  if (r.Category) parts.push(`Категория: ${r.Category}`);
+  if (r.TimeMin != null) parts.push(`⏱ ${r.TimeMin} мин`);
+  if (r.Servings != null) parts.push(`🍽 ${r.Servings} порции`);
+  return parts.join(' · ');
 }
 
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif;
-  color:var(--text);
-  background:linear-gradient(180deg, #0b0c0b 0%, #070807 100%);
+// ====== UI helpers ======
+function setStatus(text, isError = false) {
+  const box = el('status');
+  box.hidden = false;
+  box.textContent = text;
+  box.style.borderColor = isError ? 'rgba(255,120,120,.35)' : 'rgba(255,255,255,.10)';
+  box.style.background = isError ? 'rgba(255,80,80,.08)' : 'rgba(255,255,255,.05)';
+}
+function clearStatus() {
+  const box = el('status');
+  box.hidden = true;
+  box.textContent = '';
 }
 
-.topbar{
-  position:sticky; top:0; z-index:20;
-  display:flex; align-items:center; gap:12px;
-  padding:14px 14px calc(10px + env(safe-area-inset-top));
-  background:linear-gradient(180deg, rgba(111,127,58,.95) 0%, rgba(111,127,58,.72) 60%, rgba(11,12,11,.85) 100%);
-  backdrop-filter: blur(10px);
+function optionize(values) {
+  const uniq = Array.from(new Set(values.map(v => normStr(v)).filter(Boolean)));
+  uniq.sort((a,b)=>a.localeCompare(b,'ru'));
+  return ['Все', ...uniq];
+}
+function fillSelect(selectId, options, selected) {
+  const s = el(selectId);
+  s.innerHTML = '';
+  for (const opt of options) {
+    const o = document.createElement('option');
+    o.value = opt;
+    o.textContent = opt;
+    if (opt === selected) o.selected = true;
+    s.appendChild(o);
+  }
 }
 
-.titleblock{flex:1; min-width:0}
-.apptitle{font-size:28px; font-weight:800; letter-spacing:.2px}
-.subtitle{font-size:12px; color:rgba(255,255,255,.85); margin-top:2px}
-
-.icon-btn{
-  width:40px; height:40px;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,.18);
-  background:rgba(0,0,0,.18);
-  color:var(--text);
-  display:grid; place-items:center;
+// ====== Загрузка CSV ======
+function saveCsvUrl(url) {
+  localStorage.setItem(LS_KEY, url);
 }
-.pill-btn{
-  height:40px;
-  padding:0 14px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.18);
-  background:rgba(0,0,0,.18);
-  color:var(--text);
-  font-weight:700;
-}
-.ghost-btn{
-  height:40px;
-  padding:0 14px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.18);
-  background:transparent;
-  color:var(--text);
-  font-weight:700;
+function loadCsvUrl() {
+  return localStorage.getItem(LS_KEY) || '';
 }
 
-.burger, .closeicon, .filtericon, .searchicon, .backicon{
-  width:18px; height:18px; position:relative; display:block;
-}
-.burger::before,.burger::after,.burger span{
-  content:""; position:absolute; left:0; right:0; height:2px; background:#fff; border-radius:2px;
-}
-.burger::before{top:2px}
-.burger::after{bottom:2px}
-.burger span{top:8px}
-.closeicon::before,.closeicon::after{
-  content:""; position:absolute; left:8px; top:1px; bottom:1px; width:2px; background:#fff; border-radius:2px;
-}
-.closeicon::before{transform:rotate(45deg)}
-.closeicon::after{transform:rotate(-45deg)}
-.filtericon::before{
-  content:""; position:absolute; left:0; right:0; top:3px; height:2px; background:#fff; border-radius:2px;
-}
-.filtericon::after{
-  content:""; position:absolute; left:4px; right:4px; top:10px; height:2px; background:#fff; border-radius:2px;
-}
-.searchicon::before{
-  content:""; position:absolute; width:10px; height:10px; border:2px solid #fff; border-radius:999px; left:0; top:0; opacity:.9;
-}
-.searchicon::after{
-  content:""; position:absolute; width:8px; height:2px; background:#fff; border-radius:2px;
-  right:0; bottom:0; transform:rotate(45deg); transform-origin:right bottom; opacity:.9;
-}
-.backicon::before{
-  content:""; position:absolute; left:4px; top:8px; width:10px; height:2px; background:#fff; border-radius:2px;
-}
-.backicon::after{
-  content:""; position:absolute; left:4px; top:5px; width:7px; height:7px;
-  border-left:2px solid #fff; border-bottom:2px solid #fff;
-  transform:rotate(45deg);
+function parseCsv(text) {
+  const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+  if (parsed.errors?.length) {
+    throw new Error(parsed.errors[0].message || 'Ошибка парсинга CSV');
+  }
+  return parsed.data || [];
 }
 
-.wrap{padding:12px 12px calc(28px + env(safe-area-inset-bottom))}
-.controls{max-width:980px; margin:0 auto 10px}
-.searchrow{display:flex; gap:10px; align-items:center}
+function normalizeRows(rows) {
+  // Ожидаемые колонки (можно иметь больше):
+  // Title, Category, Type, Time (min), Servings, Rating, Photo Main, Ingredients, Steps, TagsScenario, TagsMethod, TagsDiet, TagsAll
+  return rows.map((row, idx) => {
+    const Title = normStr(row.Title || row.Name || row['Название'] || row['Название рецепта']);
+    const Category = normStr(row.Category || row['Категория']);
+    const Type = normStr(row.Type || row['Тип']);
+    const TimeMin = toInt(row['Time (min)'] ?? row.Time ?? row['Время'] ?? row['Время (мин)']);
+    const Servings = toInt(row.Servings ?? row['Порции']);
+    const Rating = toInt(row.Rating ?? row['Оценка']);
+    const Photo = normStr(row['Photo Main'] ?? row.Photo ?? row['Фото'] ?? row['Фото готового блюда']);
+    const Ingredients = normStr(row.Ingredients ?? row['Ингредиенты']);
+    const Steps = normStr(row.Steps ?? row['Приготовление'] ?? row['Шаги']);
+    const TagsScenario = splitTags(row.TagsScenario ?? row['ТегиСценарий'] ?? row['Сценарий']);
+    const TagsMethod = splitTags(row.TagsMethod ?? row['ТегиСпособ'] ?? row['Способ']);
+    const TagsDiet = splitTags(row.TagsDiet ?? row['ТегиОграничения'] ?? row['Ограничения']);
+    const TagsAll = splitTags(row.TagsAll ?? row.Tags ?? row['Теги']);
 
-.search{
-  flex:1; display:flex; align-items:center; gap:10px;
-  padding:10px 12px;
-  border-radius:14px;
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.10);
-}
-.search input{
-  flex:1; border:0; outline:0;
-  background:transparent; color:var(--text);
-  font-size:15px;
-}
+    const allTags = Array.from(new Set([...TagsScenario, ...TagsMethod, ...TagsDiet, ...TagsAll]));
 
-.filters{
-  margin-top:10px;
-  padding:12px;
-  border-radius:16px;
-  background:rgba(255,255,255,.05);
-  border:1px solid rgba(255,255,255,.10);
-  display:none;
-}
-.filters.show{display:block}
-.filtergrid{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap:10px;
-}
-.field{display:flex; flex-direction:column; gap:6px}
-.field span{font-size:12px; color:var(--muted)}
-.field input, .field select{
-  height:40px;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,.10);
-  background:rgba(0,0,0,.25);
-  color:var(--text);
-  padding:0 10px;
-}
-.filteractions{margin-top:10px; display:flex; justify-content:flex-end}
-
-.grid{
-  max-width:980px; margin:0 auto;
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap:12px;
-}
-@media (min-width: 860px){
-  .grid{grid-template-columns: repeat(3, minmax(0,1fr));}
-  .filtergrid{grid-template-columns: repeat(4, minmax(0,1fr));}
+    return {
+      id: row.id || row.ID || String(idx + 1),
+      Title,
+      Category,
+      Type,
+      TimeMin,
+      TimeBucket: timeBucket(TimeMin),
+      Servings,
+      Rating,
+      Photo,
+      Ingredients,
+      Steps,
+      TagsScenario,
+      TagsMethod,
+      TagsDiet,
+      TagsAll: allTags,
+      _search: [
+        Title, Category, Type,
+        Ingredients, Steps,
+        allTags.join(' ')
+      ].join(' ').toLowerCase()
+    };
+  }).filter(r => r.Title); // выкидываем пустые строки без названия
 }
 
-.card{
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:18px;
-  overflow:hidden;
-  box-shadow: var(--shadow);
-  cursor:pointer;
-}
-.thumb{
-  aspect-ratio: 16/10;
-  background:rgba(255,255,255,.06);
-}
-.thumb img{width:100%; height:100%; object-fit:cover; display:block}
-.cardbody{padding:10px 12px 12px}
-.cardmeta{
-  color:rgba(142,160,75,.95);
-  font-weight:800;
-  font-size:12px;
-  text-transform:uppercase;
-  letter-spacing:.3px;
-  line-height:1.25;
-}
-.cardtitle{
-  margin-top:6px;
-  font-size:15px;
-  font-weight:800;
-  line-height:1.2;
+async function fetchCsv(url) {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Не удалось загрузить CSV (HTTP ${res.status})`);
+  const text = await res.text();
+  return text;
 }
 
-.drawer-backdrop, .modal-backdrop{
-  position:fixed; inset:0; background:rgba(0,0,0,.55);
-  z-index:40;
-}
-.drawer{
-  position:fixed; top:0; right:0; height:100%;
-  width:min(420px, 92vw);
-  background:linear-gradient(180deg, #0f120f 0%, #0a0c0a 100%);
-  border-left:1px solid rgba(255,255,255,.12);
-  z-index:50;
-  transform: translateX(100%);
-  transition: transform .18s ease;
-}
-.drawer.open{transform: translateX(0)}
-.drawerhead{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:14px;
-  border-bottom:1px solid var(--line);
-}
-.drawertitle{font-size:16px; font-weight:900}
-.drawerbody{padding:14px}
-.hint{margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.35}
-.row{display:flex; gap:10px; margin-top:10px}
-.status{margin-top:10px; color:var(--muted); font-size:13px}
-.help{margin-top:12px; color:var(--muted); font-size:13px}
-.help summary{cursor:pointer; font-weight:800; color:var(--text)}
-.help ol{margin:8px 0 0; padding-left:18px}
+async function loadDataFromUrl(url) {
+  clearStatus();
+  setStatus('Загружаю таблицу…');
+  const csvText = await fetchCsv(url);
+  const rows = parseCsv(csvText);
+  const items = normalizeRows(rows);
+  state.raw = items;
 
-.modal{
-  position:fixed;
-  inset: 10px 10px 10px 10px;
-  z-index:60;
-  background:linear-gradient(180deg, #0f120f 0%, #0a0c0a 100%);
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:20px;
-  overflow:hidden;
-  display:none;
-}
-.modal.open{display:block}
-.modalclose{position:absolute; left:10px; top:10px; z-index:5}
+  // Заполняем фильтры
+  fillSelect('fCategory', optionize(items.map(x => x.Category)), state.filters.Category);
+  fillSelect('fType', optionize(items.map(x => x.Type)), state.filters.Type);
+  fillSelect('fTimeBucket', optionize(items.map(x => x.TimeBucket)), state.filters.TimeBucket);
 
-.hero{
-  position:relative;
-  height: 280px;
-  background:rgba(255,255,255,.06);
+  // “Сценарий/Способ/Ограничения” берём из тегов
+  fillSelect('fScenario', optionize(items.flatMap(x => x.TagsScenario)), state.filters.Scenario);
+  fillSelect('fMethod', optionize(items.flatMap(x => x.TagsMethod)), state.filters.Method);
+  fillSelect('fDiet', optionize(items.flatMap(x => x.TagsDiet)), state.filters.Diet);
+
+  setStatus(`Готово. Рецептов: ${items.length}`);
+  applyFilters();
 }
-.hero img{width:100%; height:100%; object-fit:cover; display:block; filter:saturate(1.05)}
-.herotext{
-  position:absolute; left:0; right:0; bottom:0;
-  padding:14px;
-  background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.75) 55%, rgba(0,0,0,.9) 100%);
+
+// ====== Фильтрация и рендер ======
+function matchSelect(filterValue, itemValue) {
+  if (!filterValue || filterValue === 'Все') return true;
+  return normStr(itemValue) === filterValue;
 }
-.herotext h1{margin:0; font-si
+function matchTag(filterValue, tags) {
+  if (!filterValue || filterValue === 'Все') return true;
+  return (tags || []).includes(filterValue);
+}
+function applyFilters() {
+  const q = state.filters.q.trim().toLowerCase();
+
+  const filtered = state.raw.filter(r => {
+    if (q && !r._search.includes(q)) return false;
+    if (!matchSelect(state.filters.Category, r.Category)) return false;
+    if (!matchSelect(state.filters.Type, r.Type)) return false;
+    if (!matchSelect(state.filters.TimeBucket, r.TimeBucket)) return false;
+
+    if (!matchTag(state.filters.Scenario, r.TagsScenario)) return false;
+    if (!matchTag(state.filters.Method, r.TagsMethod)) return false;
+    if (!matchTag(state.filters.Diet, r.TagsDiet)) return false;
+
+    return true;
+  });
+
+  state.list = filtered;
+  renderGrid();
+}
+
+function renderGrid() {
+  const grid = el('grid');
+  grid.innerHTML = '';
+
+  el('empty').hidden = state.list.length !== 0;
+
+  for (const r of state.list) {
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.tabIndex = 0;
+    card.addEventListener('click', () => openRecipe(r));
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') openRecipe(r);
+    });
+
+    const img = document.createElement('img');
+    img.className = 'cardimg';
+    img.alt = r.Title;
+    img.loading = 'lazy';
+    img.src = r.Photo || '';
+    img.onerror = () => { img.removeAttribute('src'); img.style.background = 'rgba(255,255,255,.06)'; };
+
+    const body = document.createElement('div');
+    body.className = 'cardbody';
+
+    const meta = document.createElement('div');
+    meta.className = 'cardmeta';
+    meta.textContent = metaLine(r).toUpperCase();
+
+    const title = document.createElement('div');
+    title.className = 'cardtitle';
+    title.textContent = r.Title;
+
+    body.appendChild(meta);
+    body.appendChild(title);
+
+    card.appendChild(img);
+    card.appendChild(body);
+
+    grid.appendChild(card);
+  }
+}
+
+function renderStars(container, rating) {
+  container.innerHTML = '';
+  const r = Number.isFinite(rating) ? rating : 0;
+  for (let i = 1; i <= 5; i++) {
+    const s = document.createElement('div');
+    s.className = 'star' + (i <= r ? ' on' : '');
+    container.appendChild(s);
+  }
+}
+
+function openRecipe(r) {
+  state.selected = r;
+
+  el('dTitle').textContent = r.Title;
+  el('dMeta').textContent = metaLine(r).toUpperCase();
+
+  const img = el('dPhoto');
+  img.src = r.Photo || '';
+  img.alt = r.Title;
+  img.onerror = () => { img.removeAttribute('src'); };
+
+  // Рейтинг
+  const row = el('dRatingRow');
+  if (r.Rating != null && r.Rating > 0) {
+    row.hidden = false;
+    renderStars(el('dStars'), r.Rating);
+  } else {
+    row.hidden = true;
+  }
+
+  // Тексты (как ты делаешь в Glide — переносы/маркеры сохраняем)
+  el('dIngredients').textContent = r.Ingredients || '';
+  el('dSteps').textContent = r.Steps || '';
+
+  // Теги снизу (твоя “умная строка”)
+  const tagsBox = el('dTagsBox');
+  const tagsEl = el('dTags');
+  const tags = r.TagsAll || [];
+  if (tags.length) {
+    tagsBox.hidden = false;
+    tagsEl.innerHTML = '';
+    for (const t of tags) {
+      const chip = document.createElement('span');
+      chip.className = 'tag';
+      chip.textContent = t;
+      tagsEl.appendChild(chip);
+    }
+  } else {
+    tagsBox.hidden = true;
+  }
+
+  const drawer = el('drawer');
+  drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden', 'false');
+}
+
+function closeRecipe() {
+  el('drawer').classList.remove('open');
+  el('drawer').setAttribute('aria-hidden', 'true');
+  state.selected = null;
+}
+
+// ====== Модалка источника ======
+function openModal() {
+  el('csvUrl').value = loadCsvUrl();
+  clearStatus();
+  el('modal').hidden = false;
+}
+function closeModal() {
+  el('modal').hidden = true;
+}
+
+// ====== Share ======
+async function shareRecipe() {
+  const r = state.selected;
+  if (!r) return;
+  const text = `${r.Title}\n${metaLine(r)}\n\nИнгредиенты:\n${r.Ingredients}\n\nПриготовление:\n${r.Steps}`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: r.Title, text });
+    } else {
+      await navigator.clipboard.writeText(text);
+      setStatus('Скопировано в буфер обмена.');
+      openModal();
+    }
+  } catch (_) {}
+}
+
+// ====== Events ======
+function bindEvents() {
+  el('btnMenu').addEventListener('click', () => openModal()); // меню пока ведёт в источник
+  el('btnSource').addEventListener('click', () => openModal());
+
+  el('mClose').addEventListener('click', closeModal);
+  el('modal').addEventListener('click', (e) => {
+    if (e.target === el('modal')) closeModal();
+  });
+
+  el('btnSaveSource').addEventListener('click', async () => {
+    const url = normStr(el('csvUrl').value);
+    if (!url) return setStatus('Вставь CSV-ссылку.', true);
+    try {
+      saveCsvUrl(url);
+      await loadDataFromUrl(url);
+    } catch (e) {
+      setStatus(String(e.message || e), true);
+    }
+  });
+
+  el('btnClearSource').addEventListener('click', () => {
+    localStorage.removeItem(LS_KEY);
+    el('csvUrl').value = '';
+    setStatus('Очищено. Вставь новую ссылку.', false);
+  });
+
+  el('q').addEventListener('input', (e) => {
+    state.filters.q = e.target.value || '';
+    applyFilters();
+  });
+
+  el('btnFilters').addEventListener('click', () => {
+    const box = el('filters');
+    box.hidden = !box.hidden;
+  });
+
+  el('btnReset').addEventListener('click', () => {
+    state.filters.Category = 'Все';
+    state.filters.Type = 'Все';
+    state.filters.TimeBucket = 'Все';
+    state.filters.Scenario = 'Все';
+    state.filters.Method = 'Все';
+    state.filters.Diet = 'Все';
+
+    fillSelect('fCategory', optionize(state.raw.map(x => x.Category)), 'Все');
+    fillSelect('fType', optionize(state.raw.map(x => x.Type)), 'Все');
+    fillSelect('fTimeBucket', optionize(state.raw.map(x => x.TimeBucket)), 'Все');
+    fillSelect('fScenario', optionize(state.raw.flatMap(x => x.TagsScenario)), 'Все');
+    fillSelect('fMethod', optionize(state.raw.flatMap(x => x.TagsMethod)), 'Все');
+    fillSelect('fDiet', optionize(state.raw.flatMap(x => x.TagsDiet)), 'Все');
+
+    applyFilters();
+  });
+
+  el('btnApply').addEventListener('click', () => {
+    state.filters.Category = el('fCategory').value;
+    state.filters.Type = el('fType').value;
+    state.filters.TimeBucket = el('fTimeBucket').value;
+    state.filters.Scenario = el('fScenario').value;
+    state.filters.Method = el('fMethod').value;
+    state.filters.Diet = el('fDiet').value;
+    applyFilters();
+    el('filters').hidden = true;
+  });
+
+  el('btnBack').addEventListener('click', closeRecipe);
+  el('drawer').addEventListener('click', (e) => {
+    if (e.target === el('drawer')) closeRecipe();
+  });
+  el('btnShare').addEventListener('click', shareRecipe);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!el('modal').hidden) closeModal();
+      if (el('drawer').classList.contains('open')) closeRecipe();
+    }
+  });
+}
+
+// ====== PWA service worker ======
+function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ====== Init ======
+(async function init() {
+  bindEvents();
+  registerSW();
+
+  const url = loadCsvUrl();
+  if (!url) {
+    // Первый запуск — открываем окно источника
+    openModal();
+    setStatus('Вставь CSV-ссылку, чтобы загрузить рецепты.', false);
+    return;
+  }
+  try {
+    await loadDataFromUrl(url);
+  } catch (e) {
+    openModal();
+    setStatus('Не удалось загрузить. Проверь CSV-ссылку и доступ.', true);
+  }
+})();
