@@ -1,6 +1,7 @@
 'use strict';
 
 const LS_KEY = 'recipes_csv_url_v1';
+
 const el = (id) => document.getElementById(id);
 
 const state = {
@@ -21,10 +22,12 @@ const state = {
 function normStr(v) {
   return String(v ?? '').trim();
 }
+
 function toInt(v) {
   const n = Number(String(v ?? '').replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 }
+
 function splitTags(v) {
   // поддержка: "тег1, тег2" / "тег1; тег2" / переносы строк
   const s = normStr(v);
@@ -34,6 +37,7 @@ function splitTags(v) {
     .map((x) => normStr(x))
     .filter(Boolean);
 }
+
 function timeBucket(mins) {
   const m = toInt(mins);
   if (m === null) return '';
@@ -42,213 +46,374 @@ function timeBucket(mins) {
   return 'Долго (45+ минут)';
 }
 
-// Динамическая “Meta-строка” как в Glide
 function metaLine(r) {
-  const parts = [];
   const cat = normStr(r.Category);
-  const t = toInt(r['Time (min)']);
-  const s = toInt(r.Servings);
+  const mins = toInt(r.TimeMin);
+  const servings = toInt(r.Servings);
 
+  const parts = [];
   if (cat) parts.push(`КАТЕГОРИЯ: ${cat.toUpperCase()}`);
-  if (t !== null) parts.push(`⏱ ${t} МИН`);
-  if (s !== null) parts.push(`🍽 ${s} ПОРЦИИ`);
+  if (mins !== null) parts.push(`⏱ ${mins} МИН`);
+  if (servings !== null) parts.push(`🍽 ${servings} ПОРЦИИ`);
 
   return parts.join(' · ');
 }
 
-function pickPhoto(r) {
-  // Photo Main может быть ссылкой, base64 или пустым — оставим как есть
-  return normStr(r['Photo Main'] || r.Photo || r.Image || '');
+function starsHtml(n) {
+  const val = Math.max(0, Math.min(5, toInt(n) ?? 0));
+  let out = '';
+  for (let i = 1; i <= 5; i++) {
+    out += `<span class="star ${i <= val ? 'on' : ''}">★</span>`;
+  }
+  return out;
 }
 
-function buildDerived(row) {
-  const r = { ...row };
-  r.TimeBucket = timeBucket(row['Time (min)']);
-  r.TagsArr = splitTags(row.Tags || row.Tag || '');
-  r.Meta = metaLine(r);
-  r._photo = pickPhoto(r);
-  r._name = normStr(r.Name || row.Title || '');
-  r._ingredients = normStr(r.Ingredients || '');
-  r._steps = normStr(r.Steps || '');
-  return r;
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
-function setSelectOptions(sel, values) {
-  const all = ['Все', ...values];
-  sel.innerHTML = '';
+function textToRichHtml(s) {
+  // поддерживаем твой формат:
+  // - переносы строк
+  // - строки с ✔️ / • / - / — превращаем в маркированный список
+  const raw = normStr(s);
+  if (!raw) return '<div class="muted">—</div>';
+
+  const lines = raw.split('\n').map((x) => x.replace(/\r/g, ''));
+
+  // если есть явные маркеры — делаем <ul>
+  const bulletRe = /^\s*(✔️|•|-|—)\s+/;
+  const hasBullets = lines.some((ln) => bulletRe.test(ln));
+
+  if (hasBullets) {
+    let html = '<ul class="ul">';
+    for (const ln of lines) {
+      const m = ln.match(bulletRe);
+      if (m) {
+        const clean = ln.replace(bulletRe, '');
+        html += `<li>${escapeHtml(clean)}</li>`;
+      } else if (normStr(ln)) {
+        // заголовки секций (например "Кешью соус:")
+        html += `</ul><div class="sectionhead">${escapeHtml(ln)}</div><ul class="ul">`;
+      }
+    }
+    html += '</ul>';
+    return html.replaceAll('<ul class="ul"></ul>', '');
+  }
+
+  // иначе просто параграфы
+  return lines
+    .map((ln) => (normStr(ln) ? `<p>${escapeHtml(ln)}</p>` : '<br/>'))
+    .join('');
+}
+
+function uniq(arr) {
+  return Array.from(new Set(arr)).filter(Boolean);
+}
+
+function buildSelectOptions(selectEl, values) {
+  selectEl.innerHTML = '';
+  const all = ['Все', ...uniq(values).sort((a, b) => a.localeCompare(b, 'ru'))];
   for (const v of all) {
     const opt = document.createElement('option');
     opt.value = v;
     opt.textContent = v;
-    sel.appendChild(opt);
+    selectEl.appendChild(opt);
   }
 }
 
-function uniqSorted(arr) {
-  return Array.from(new Set(arr.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'));
+function toast(msg) {
+  const t = el('toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toast._tm);
+  toast._tm = setTimeout(() => (t.hidden = true), 2400);
+}
+
+function showModal() {
+  const m = el('modal');
+  m.hidden = false;
+  // фокус в поле ввода
+  setTimeout(() => el('csvUrl').focus(), 50);
+}
+
+function hideModal() {
+  const m = el('modal');
+  m.hidden = true;
+}
+
+function showDetails(r) {
+  state.selected = r;
+  el('grid').hidden = true;
+  el('details').hidden = false;
+
+  el('dName').textContent = normStr(r.Name) || 'Без названия';
+
+  const photo = normStr(r.Photo);
+  const img = el('dPhoto');
+  if (photo) {
+    img.src = photo;
+    img.classList.remove('ph');
+  } else {
+    img.removeAttribute('src');
+    img.classList.add('ph');
+  }
+
+  el('dStars').innerHTML = starsHtml(r.Rating);
+
+  el('dMeta').textContent = metaLine(r);
+
+  el('dIngredients').innerHTML = textToRichHtml(r.Ingredients);
+  el('dSteps').innerHTML = textToRichHtml(r.Steps);
+
+  const tags = splitTags(r.Tags);
+  const tagsCard = el('tagsCard');
+  const tagsWrap = el('dTags');
+  tagsWrap.innerHTML = '';
+  if (tags.length) {
+    tagsCard.hidden = false;
+    for (const t of tags) {
+      const chip = document.createElement('span');
+      chip.className = 'tag';
+      chip.textContent = t.toUpperCase();
+      tagsWrap.appendChild(chip);
+    }
+  } else {
+    tagsCard.hidden = true;
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function backToList() {
+  state.selected = null;
+  el('details').hidden = true;
+  el('grid').hidden = false;
 }
 
 function applyFilters() {
   const q = normStr(state.filters.q).toLowerCase();
-  const f = state.filters;
 
-  state.list = state.raw.filter((r) => {
-    if (f.Category !== 'Все' && normStr(r.Category) !== f.Category) return false;
-    if (f.Type !== 'Все' && normStr(r.Type) !== f.Type) return false;
-    if (f.TimeBucket !== 'Все' && normStr(r.TimeBucket) !== f.TimeBucket) return false;
+  const filtered = state.raw.filter((r) => {
+    const cat = normStr(r.Category) || '';
+    const type = normStr(r.Type) || '';
+    const scen = normStr(r.Scenario) || '';
+    const method = normStr(r.Method) || '';
+    const diet = normStr(r.Diet) || '';
+    const tb = timeBucket(r.TimeMin);
 
-    if (f.Scenario !== 'Все') {
-      if (!r.TagsArr.includes(f.Scenario)) return false;
-    }
-    if (f.Method !== 'Все') {
-      if (!r.TagsArr.includes(f.Method)) return false;
-    }
-    if (f.Diet !== 'Все') {
-      if (!r.TagsArr.includes(f.Diet)) return false;
-    }
+    const okCat = state.filters.Category === 'Все' || cat === state.filters.Category;
+    const okType = state.filters.Type === 'Все' || type === state.filters.Type;
+    const okScen = state.filters.Scenario === 'Все' || scen === state.filters.Scenario;
+    const okMethod = state.filters.Method === 'Все' || method === state.filters.Method;
+    const okDiet = state.filters.Diet === 'Все' || diet === state.filters.Diet;
+    const okTB = state.filters.TimeBucket === 'Все' || tb === state.filters.TimeBucket;
+
+    if (!(okCat && okType && okScen && okMethod && okDiet && okTB)) return false;
 
     if (!q) return true;
 
     const hay = [
-      r._name,
-      r._ingredients,
-      r._steps,
-      normStr(r.TagsArr.join(' ')),
-      normStr(r.Category),
-      normStr(r.Type),
-    ].join(' ').toLowerCase();
+      r.Name,
+      r.Category,
+      r.Type,
+      r.Scenario,
+      r.Method,
+      r.Diet,
+      r.Ingredients,
+      r.Steps,
+      r.Tags,
+    ]
+      .map((x) => normStr(x).toLowerCase())
+      .join(' | ');
 
     return hay.includes(q);
   });
 
+  state.list = filtered;
   renderGrid();
 }
 
-function recipeCard(r) {
-  const div = document.createElement('button');
-  div.className = 'cardbtn';
-  div.type = 'button';
+function cardHtml(r) {
+  const name = normStr(r.Name) || 'Без названия';
+  const meta = metaLine(r);
+  const photo = normStr(r.Photo);
 
-  const img = document.createElement('img');
-  img.className = 'thumb';
-  img.alt = '';
-  img.loading = 'lazy';
-  img.src = r._photo || './apple-touch-icon.png';
+  const photoHtml = photo
+    ? `<img class="cardimg" src="${escapeHtml(photo)}" alt="">`
+    : `<div class="cardimg ph"></div>`;
 
-  const meta = document.createElement('div');
-  meta.className = 'cardmeta';
-  meta.textContent = r.Meta;
-
-  const name = document.createElement('div');
-  name.className = 'cardname';
-  name.textContent = r._name || 'Без названия';
-
-  div.appendChild(img);
-  div.appendChild(meta);
-  div.appendChild(name);
-
-  div.addEventListener('click', () => openDetail(r));
-  return div;
+  return `
+    <article class="rcard" data-id="${escapeHtml(r.Id)}">
+      <div class="imgwrap">${photoHtml}</div>
+      <div class="cardbody">
+        <div class="metasmall">${escapeHtml(meta)}</div>
+        <div class="title">${escapeHtml(name)}</div>
+      </div>
+    </article>
+  `;
 }
 
 function renderGrid() {
   const grid = el('grid');
   grid.innerHTML = '';
-  for (const r of state.list) grid.appendChild(recipeCard(r));
-}
 
-function openDetail(r) {
-  state.selected = r;
-  el('grid').hidden = true;
-  el('detail').hidden = false;
-
-  el('dPhoto').src = r._photo || './apple-touch-icon.png';
-  el('dName').textContent = r._name || 'Без названия';
-  el('dMeta').textContent = r.Meta || '';
-
-  // сохраняем маркеры как есть (✔️ и переносы) — это твой стиль
-  el('dIngredients').textContent = r._ingredients || '';
-  el('dSteps').textContent = r._steps || '';
-
-  const tagsWrap = el('dTags');
-  tagsWrap.innerHTML = '';
-  for (const t of r.TagsArr) {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.textContent = t.toUpperCase();
-    tagsWrap.appendChild(chip);
-  }
-}
-
-function closeDetail() {
-  el('detail').hidden = true;
-  el('grid').hidden = false;
-  state.selected = null;
-}
-
-function openModal() {
-  el('modal').hidden = false;
-  el('csvUrl').value = localStorage.getItem(LS_KEY) || '';
-}
-function closeModal() {
-  el('modal').hidden = true;
-}
-
-function loadCsv(url) {
-  return new Promise((resolve, reject) => {
-    Papa.parse(url, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: (res) => resolve(res.data || []),
-      error: (err) => reject(err),
-    });
-  });
-}
-
-async function reloadData() {
-  const url = localStorage.getItem(LS_KEY);
-  if (!url) {
-    // Без источника покажем пусто, но интерфейс живой
-    state.raw = [];
-    state.list = [];
-    renderGrid();
+  if (!state.list.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'Пока пусто. Проверь ссылку на CSV в «Источник».';
+    grid.appendChild(empty);
     return;
   }
 
-  const rows = await loadCsv(url);
-  state.raw = rows.map(buildDerived);
-
-  // Фильтры
-  setSelectOptions(el('fCategory'), uniqSorted(state.raw.map((r) => normStr(r.Category))));
-  setSelectOptions(el('fType'), uniqSorted(state.raw.map((r) => normStr(r.Type))));
-  setSelectOptions(el('fTimeBucket'), uniqSorted(state.raw.map((r) => normStr(r.TimeBucket))));
-
-  // Теги: сценарии/способы/диеты — берём из общего Tags
-  const allTags = uniqSorted(state.raw.flatMap((r) => r.TagsArr));
-
-  // Ты говорила “единый словарь” — здесь просто показываем все теги в трёх селектах.
-  // Если хочешь, разделим префиксами (SC:, M:, D:) — скажи, и сделаем.
-  setSelectOptions(el('fScenario'), allTags);
-  setSelectOptions(el('fMethod'), allTags);
-  setSelectOptions(el('fDiet'), allTags);
-
-  // Сброс значений фильтров в “Все”
-  el('fCategory').value = 'Все';
-  el('fType').value = 'Все';
-  el('fTimeBucket').value = 'Все';
-  el('fScenario').value = 'Все';
-  el('fMethod').value = 'Все';
-  el('fDiet').value = 'Все';
-
-  applyFilters();
+  const html = state.list.map(cardHtml).join('');
+  grid.insertAdjacentHTML('beforeend', html);
 }
 
-function bindUI() {
-  el('btnBack').addEventListener('click', closeDetail);
+function normalizeRow(row) {
+  // ожидаемые поля CSV:
+  // Id, Name, Photo, Category, Type, TimeMin, Servings, Rating, Ingredients, Steps, Tags, Scenario, Method, Diet
+  const r = { ...row };
+
+  r.Id = normStr(r.Id) || crypto.randomUUID();
+  r.Name = normStr(r.Name);
+  r.Photo = normStr(r.Photo);
+  r.Category = normStr(r.Category);
+  r.Type = normStr(r.Type);
+  r.TimeMin = normStr(r.TimeMin);
+  r.Servings = normStr(r.Servings);
+  r.Rating = normStr(r.Rating);
+  r.Ingredients = String(r.Ingredients ?? '');
+  r.Steps = String(r.Steps ?? '');
+  r.Tags = String(r.Tags ?? '');
+  r.Scenario = normStr(r.Scenario);
+  r.Method = normStr(r.Method);
+  r.Diet = normStr(r.Diet);
+
+  return r;
+}
+
+async function loadCsv(url) {
+  const u = normStr(url);
+  if (!u) {
+    state.raw = [];
+    state.list = [];
+    renderGrid();
+    toast('Сначала укажи ссылку на CSV.');
+    return;
+  }
+
+  toast('Загружаю таблицу…');
+
+  const res = await fetch(u, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`CSV не загрузился: ${res.status}`);
+  }
+  const text = await res.text();
+
+  const parsed = Papa.parse(text, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  if (parsed.errors?.length) {
+    console.warn(parsed.errors);
+  }
+
+  const rows = (parsed.data || []).map(normalizeRow);
+
+  state.raw = rows;
+
+  // построим варианты фильтров
+  buildSelectOptions(el('fCategory'), rows.map((r) => r.Category).filter(Boolean));
+  buildSelectOptions(el('fType'), rows.map((r) => r.Type).filter(Boolean));
+  buildSelectOptions(el('fScenario'), rows.map((r) => r.Scenario).filter(Boolean));
+  buildSelectOptions(el('fMethod'), rows.map((r) => r.Method).filter(Boolean));
+  buildSelectOptions(el('fDiet'), rows.map((r) => r.Diet).filter(Boolean));
+  buildSelectOptions(el('fTimeBucket'), rows.map((r) => timeBucket(r.TimeMin)).filter(Boolean));
+
+  // выставим текущие значения фильтров обратно (чтобы не сбрасывались)
+  el('fCategory').value = state.filters.Category;
+  el('fType').value = state.filters.Type;
+  el('fScenario').value = state.filters.Scenario;
+  el('fMethod').value = state.filters.Method;
+  el('fDiet').value = state.filters.Diet;
+  el('fTimeBucket').value = state.filters.TimeBucket;
+
+  applyFilters();
+  toast(`Готово: ${rows.length} рецептов`);
+}
+
+function wireUi() {
+  // меню пока не используем — но кнопка должна быть живой
+  el('btnMenu').addEventListener('click', () => toast('Меню пока не настроено'));
+
+  el('btnSource').addEventListener('click', () => {
+    el('csvUrl').value = localStorage.getItem(LS_KEY) || '';
+    showModal();
+  });
+
+  // закрытие модалки — три независимых способа, чтобы точно работало
+  el('modalClose').addEventListener('click', hideModal);
+  el('btnCancel').addEventListener('click', hideModal);
+  el('modal').addEventListener('click', (e) => {
+    if (e.target === el('modal')) hideModal(); // клик по затемнению
+  });
+
+  el('btnSave').addEventListener('click', async () => {
+    const url = normStr(el('csvUrl').value);
+    localStorage.setItem(LS_KEY, url);
+    hideModal();
+    try {
+      await loadCsv(url);
+    } catch (err) {
+      console.error(err);
+      toast('Ошибка: проверь, что это именно CSV-публикация.');
+    }
+  });
+
+  el('btnRefresh').addEventListener('click', async () => {
+    const url = normStr(el('csvUrl').value);
+    localStorage.setItem(LS_KEY, url);
+    try {
+      await loadCsv(url);
+    } catch (err) {
+      console.error(err);
+      toast('Ошибка: проверь ссылку CSV.');
+    }
+  });
 
   el('btnFilters').addEventListener('click', () => {
     el('filters').hidden = !el('filters').hidden;
+  });
+  el('btnCloseFilters').addEventListener('click', () => (el('filters').hidden = true));
+
+  el('btnReset').addEventListener('click', () => {
+    state.filters = {
+      q: '',
+      Category: 'Все',
+      Type: 'Все',
+      TimeBucket: 'Все',
+      Scenario: 'Все',
+      Method: 'Все',
+      Diet: 'Все',
+    };
+    el('q').value = '';
+    el('filters').hidden = true;
+
+    el('fCategory').value = 'Все';
+    el('fType').value = 'Все';
+    el('fTimeBucket').value = 'Все';
+    el('fScenario').value = 'Все';
+    el('fMethod').value = 'Все';
+    el('fDiet').value = 'Все';
+
+    applyFilters();
   });
 
   el('q').addEventListener('input', (e) => {
@@ -256,36 +421,67 @@ function bindUI() {
     applyFilters();
   });
 
-  el('fCategory').addEventListener('change', (e) => { state.filters.Category = e.target.value; applyFilters(); });
-  el('fType').addEventListener('change', (e) => { state.filters.Type = e.target.value; applyFilters(); });
-  el('fTimeBucket').addEventListener('change', (e) => { state.filters.TimeBucket = e.target.value; applyFilters(); });
-
-  el('fScenario').addEventListener('change', (e) => { state.filters.Scenario = e.target.value; applyFilters(); });
-  el('fMethod').addEventListener('change', (e) => { state.filters.Method = e.target.value; applyFilters(); });
-  el('fDiet').addEventListener('change', (e) => { state.filters.Diet = e.target.value; applyFilters(); });
-
-  el('btnSource').addEventListener('click', openModal);
-  el('btnClose').addEventListener('click', closeModal);
-
-  el('btnSave').addEventListener('click', async () => {
-    const url = normStr(el('csvUrl').value);
-    if (url) localStorage.setItem(LS_KEY, url);
-    closeModal();
-    await reloadData();
+  el('fCategory').addEventListener('change', (e) => {
+    state.filters.Category = e.target.value;
+    applyFilters();
+  });
+  el('fType').addEventListener('change', (e) => {
+    state.filters.Type = e.target.value;
+    applyFilters();
+  });
+  el('fTimeBucket').addEventListener('change', (e) => {
+    state.filters.TimeBucket = e.target.value;
+    applyFilters();
+  });
+  el('fScenario').addEventListener('change', (e) => {
+    state.filters.Scenario = e.target.value;
+    applyFilters();
+  });
+  el('fMethod').addEventListener('change', (e) => {
+    state.filters.Method = e.target.value;
+    applyFilters();
+  });
+  el('fDiet').addEventListener('change', (e) => {
+    state.filters.Diet = e.target.value;
+    applyFilters();
   });
 
-  el('btnReload').addEventListener('click', reloadData);
-}
+  el('btnBack').addEventListener('click', backToList);
 
-function registerSW() {
-  if (!('serviceWorker' in navigator)) return;
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  // клик по карточке
+  el('grid').addEventListener('click', (e) => {
+    const card = e.target.closest('.rcard');
+    if (!card) return;
+    const id = card.getAttribute('data-id');
+    const r = state.raw.find((x) => normStr(x.Id) === normStr(id));
+    if (r) showDetails(r);
   });
 }
 
-(async function init() {
-  bindUI();
-  registerSW();
-  await reloadData();
-})();
+async function boot() {
+  wireUi();
+
+  // service worker (для ПВА)
+  if ('serviceWorker' in navigator) {
+    try {
+      await navigator.serviceWorker.register('sw.js');
+    } catch (e) {
+      console.warn('SW не зарегистрирован', e);
+    }
+  }
+
+  const saved = localStorage.getItem(LS_KEY) || '';
+  if (saved) {
+    try {
+      await loadCsv(saved);
+    } catch (err) {
+      console.error(err);
+      toast('Не удалось загрузить CSV. Открой «Источник» и вставь корректную ссылку.');
+    }
+  } else {
+    renderGrid();
+    toast('Открой «Источник» и вставь ссылку на CSV.');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', boot);
