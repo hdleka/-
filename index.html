@@ -4,27 +4,32 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#6f7f3a" />
+
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
   <title>Рецепты</title>
 
-  <link rel="manifest" href="./manifest.json" />
-  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="stylesheet" href="styles.css" />
 
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script defer src="./app.js"></script>
 </head>
 
 <body>
   <header class="topbar">
-    <button class="icon-btn" id="btnMenu" aria-label="Меню"><span class="burger"></span></button>
+    <button class="icon-btn" id="btnMenu" aria-label="Меню">
+      <span class="burger"></span>
+    </button>
+
     <div class="titleblock">
       <div class="apptitle">Рецепты</div>
       <div class="subtitle" id="subtitle">Твоя семейная книга</div>
     </div>
+
     <button class="pill-btn" id="btnSource">Источник</button>
   </header>
 
@@ -35,64 +40,115 @@
           <span class="searchicon"></span>
           <input id="q" type="search" placeholder="Поиск по названию, ингредиентам, тегам..." autocomplete="off" />
         </div>
-        <button class="icon-btn" id="btnFilters" aria-label="Фильтры"><span class="filtericon"></span></button>
+        <button class="icon-btn" id="btnFilters" aria-label="Фильтры">
+          <span class="filtericon"></span>
+        </button>
       </div>
 
       <div class="filters" id="filters" hidden>
         <div class="filtergrid">
-          <label class="field"><span>Категория</span><select id="fCategory"></select></label>
-          <label class="field"><span>Тип блюда</span><select id="fType"></select></label>
-          <label class="field"><span>Время</span><select id="fTimeBucket"></select></label>
-          <label class="field"><span>Сценарий</span><select id="fScenario"></select></label>
-          <label class="field"><span>Способ</span><select id="fMethod"></select></label>
-          <label class="field"><span>Диета</span><select id="fDiet"></select></label>
+          <label class="field">
+            <span>Категория</span>
+            <select id="fCategory"></select>
+          </label>
+
+          <label class="field">
+            <span>Тип</span>
+            <select id="fType"></select>
+          </label>
+
+          <label class="field">
+            <span>Время</span>
+            <select id="fTimeBucket"></select>
+          </label>
+
+          <label class="field">
+            <span>Сценарий</span>
+            <select id="fScenario"></select>
+          </label>
+
+          <label class="field">
+            <span>Способ</span>
+            <select id="fMethod"></select>
+          </label>
+
+          <label class="field">
+            <span>Диета</span>
+            <select id="fDiet"></select>
+          </label>
+        </div>
+
+        <div class="filteractions">
+          <button class="ghost-btn" id="btnReset">Сбросить</button>
+          <button class="pill-btn" id="btnCloseFilters">Готово</button>
         </div>
       </div>
     </section>
 
-    <section id="grid" class="grid"></section>
+    <section class="grid" id="grid"></section>
 
-    <section id="detail" class="detail" hidden>
-      <button class="backbtn" id="btnBack" aria-label="Назад">←</button>
+    <section class="details" id="details" hidden>
+      <button class="backbtn" id="btnBack" aria-label="Назад"></button>
+
       <div class="hero">
         <img id="dPhoto" alt="" />
       </div>
-      <div class="card">
+
+      <div class="card headcard">
         <h1 id="dName"></h1>
+
+        <div class="ratingrow" id="ratingRow" aria-label="Оценка">
+          <span class="label">Оценка</span>
+          <div class="stars" id="dStars"></div>
+        </div>
+
         <div class="metaline" id="dMeta"></div>
+      </div>
 
-        <h2>Ингредиенты</h2>
-        <div class="textblock" id="dIngredients"></div>
+      <div class="card">
+        <h2>Ингредиенты:</h2>
+        <div class="rich" id="dIngredients"></div>
+      </div>
 
-        <h2>Приготовление</h2>
-        <div class="textblock" id="dSteps"></div>
+      <div class="card">
+        <h2>Приготовление:</h2>
+        <div class="rich" id="dSteps"></div>
+      </div>
 
+      <div class="card" id="tagsCard" hidden>
+        <h2>Теги:</h2>
         <div class="tags" id="dTags"></div>
       </div>
     </section>
+
+    <div class="toast" id="toast" hidden></div>
   </main>
 
+  <!-- МОДАЛКА ИСТОЧНИКА -->
   <div class="modal" id="modal" hidden>
-    <div class="modalcard">
+    <div class="modalcard" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="modalhead">
-        <div class="modaltitle">Источник данных</div>
-        <button class="icon-btn" id="btnClose" aria-label="Закрыть">✕</button>
+        <h3 id="modalTitle">Источник данных</h3>
+        <button class="icon-btn" id="modalClose" aria-label="Закрыть"><span class="xicon"></span></button>
       </div>
 
-      <label class="field">
-        <span>Ссылка на CSV (Google Sheets → Публикация → CSV)</span>
-        <input id="csvUrl" type="url" placeholder="Вставь ссылку вида ...pub?output=csv" />
-      </label>
+      <p class="muted">Ссылка на CSV (Google Sheets → Файл → Опубликовать в интернете → CSV)</p>
 
-      <div class="modalactions">
+      <input class="input" id="csvUrl" type="url" placeholder="Вставь ссылку .../pub?output=csv" />
+
+      <div class="modactions">
+        <button class="ghost-btn" id="btnCancel">Отмена</button>
         <button class="pill-btn" id="btnSave">Сохранить</button>
-        <button class="ghost-btn" id="btnReload">Обновить</button>
+        <button class="pill-btn" id="btnRefresh">Обновить</button>
       </div>
 
       <div class="hint">
-        Подсказка: в Google Sheets выбери «Файл → Опубликовать в интернете → Таблица со значениями, разделенными запятыми (CSV)».
+        Подсказка: в Google Sheets выбери «Файл → Опубликовать в интернете → Таблица со значениями, разделёнными запятыми (CSV)».
       </div>
     </div>
   </div>
+
+  <!-- ВАЖНО: app.js подключаем здесь, чтобы все элементы уже существовали -->
+  <script src="app.js"></script>
 </body>
 </html>
